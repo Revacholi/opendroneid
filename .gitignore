@@ -1,0 +1,11 @@
+build/
+*.o
+*.a
+*.so
+odid-daemon
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+Testing/

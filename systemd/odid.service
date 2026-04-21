@@ -1,0 +1,29 @@
+[Unit]
+Description=Open Drone ID Broadcaster
+Documentation=https://github.com/opendroneid/transmitter-linux
+After=bluetooth.target network.target
+Wants=bluetooth.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/odid-daemon --config /etc/odid/odid.conf
+Restart=on-failure
+RestartSec=5
+
+# Drop to pi user after opening raw sockets, keeping only required capabilities
+User=root
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+# Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/tmp /var/log
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=odid-daemon
+
+[Install]
+WantedBy=multi-user.target

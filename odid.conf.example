@@ -1,0 +1,58 @@
+; Open Drone ID Daemon Configuration
+; Copy to /etc/odid/odid.conf and edit before running.
+;
+; MAVLink OPEN_DRONE_ID_* messages from the flight controller will override
+; these values when available. This file provides static fallbacks and fields
+; the autopilot may not transmit (operator_id, category, class).
+
+[basic_id]
+; UAS serial number — ANSI/CTA-2063-A format (ASTM F3411-22a §6.3 / ASD-STAN prEN 4709-002 §5.2.2)
+; Structure: [4-char manufacturer code][1-char length code 0-9/A-F][serial chars]
+; Example: XXXX = 4-char code, 5 = five chars follow, YYYYY = serial → "XXXX5YYYYY"
+; Only uppercase letters (A-Z) and digits (0-9) are permitted — no hyphens or spaces.
+uas_id           = "XXXX5YYYYY"
+; id_type: 1=SERIAL_NUMBER (CTA-2063-A), 2=CAA_REGISTRATION_ID, 3=UTM_ASSIGNED_UUID
+id_type          = 1
+; ua_type: 0=NONE, 1=AEROPLANE, 2=HELICOPTER_OR_MULTIROTOR, 3=GYROPLANE, ...
+ua_type          = 1
+
+[operator]
+; EU operator registration number (OPRN) from Transportstyrelsen / EASA portal
+; Format: 3-char country code + 13 alphanumeric chars, e.g. "SWE3jxza7qbzvu5d"
+operator_id      = "SWEXXXXXXXXYYYYY"
+; operator_id_type: 0=CAA_ASSIGNED (EU operator registration)
+operator_id_type = 0
+
+[self_id]
+; Human-readable description of the operation (max 23 chars)
+description      = "Sea rescue surveillance"
+; description_type: 0=NONE, 1=PURPOSE, 2=AIR_TRAFFIC, 3=UTM_ASSIGNED
+description_type = 1
+
+[system]
+; operator_location_type: 0=TAKEOFF, 1=LIVE_GNSS, 2=FIXED
+operator_location_type = 0
+; classification_type: 0=UNDECLARED, 1=EU, 2=US_DOT
+classification_type    = 1
+; EU category: 1=Open, 2=Specific, 3=Certified
+category               = 3
+; EU class: 0=UNDECLARED, 1=C0, 2=C1, 3=C2, 4=C3, 5=C4, 6=C5, 7=C6
+class                  = 4
+
+[serial]
+; Serial device connected to Pixhawk flight controller
+device = "/dev/ttyACM0"
+; Baud rate (must match SERIAL2_BAUD parameter in Ardupilot, typically 921600)
+baud   = 921600
+
+[broadcast]
+; Enable BT4 Legacy Advertising (single ODID message, 31-byte payload)
+bt4_enabled          = true
+; Enable BT5 Long Range Extended Advertising (message pack, LE Coded PHY S=8)
+bt5_enabled          = true
+; Enable WiFi Beacon vendor IE injection
+wifi_beacon_enabled  = true
+; WiFi interface (must be in AP/monitor mode, managed by hostapd)
+wifi_iface           = "wlan0"
+; Bluetooth HCI adapter
+bt_adapter           = "hci0"

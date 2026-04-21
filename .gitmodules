@@ -1,0 +1,12 @@
+[submodule "lib/opendroneid-core-c"]
+	path = lib/opendroneid-core-c
+	url = https://github.com/opendroneid/opendroneid-core-c.git
+[submodule "lib/inih"]
+	path = lib/inih
+	url = https://github.com/benhoyt/inih.git
+[submodule "lib/pymavlink"]
+	path = lib/pymavlink
+	url = https://github.com/ArduPilot/pymavlink.git
+[submodule "lib/mavlink"]
+	path = lib/mavlink
+	url = https://github.com/mavlink/c_library_v2.git
