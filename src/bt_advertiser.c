@@ -326,6 +326,19 @@ int bt_advertiser_init(const char *adapter, bool bt4, bool bt5) {
         LOG_ERROR("bt: invalid adapter '%s', expected hciN", adapter);
         return -1;
     }
+
+    /* Bring adapter up before hci_devid — adapter may be DOWN at boot when
+     * bluetooth.service is disabled or when the daemon is run without systemd.
+     * EALREADY is fine (already up). Requires CAP_NET_ADMIN. */
+    int ctl = socket(AF_BLUETOOTH, SOCK_RAW | SOCK_CLOEXEC, BTPROTO_HCI);
+    if (ctl < 0) {
+        LOG_WARN("bt: control socket: %s", strerror(errno));
+    } else {
+        if (ioctl(ctl, HCIDEVUP, idx) < 0 && errno != EALREADY)
+            LOG_WARN("bt: could not bring %s up: %s", adapter, strerror(errno));
+        close(ctl);
+    }
+
     s.dev_id = hci_devid(adapter);
     if (s.dev_id < 0) {
         LOG_ERROR("bt: adapter %s not found: %s", adapter, strerror(errno));
@@ -337,9 +350,6 @@ int bt_advertiser_init(const char *adapter, bool bt4, bool bt5) {
         LOG_ERROR("bt: hci_open_dev(%d): %s", s.dev_id, strerror(errno));
         return -1;
     }
-
-    /* Bring adapter up and into LE-capable mode */
-    ioctl(s.dd, HCIDEVUP, s.dev_id);
 
     s.bt5_supported = true;  /* assume supported until first failure */
     s.initialized = true;

@@ -135,15 +135,18 @@ void odid_state_init(const odid_config_t *cfg) {
     s.basic_id.IDType = cfg->id_type;
     s.basic_id.UAType = cfg->ua_type;
     strncpy(s.basic_id.UASID, cfg->uas_id, sizeof(s.basic_id.UASID) - 1);
+    s.basic_id.UASID[sizeof(s.basic_id.UASID) - 1] = '\0';
 
     /* Populate OperatorID from config */
     s.operator_id.OperatorIdType = cfg->operator_id_type;
     strncpy(s.operator_id.OperatorId, cfg->operator_id,
             sizeof(s.operator_id.OperatorId) - 1);
+    s.operator_id.OperatorId[sizeof(s.operator_id.OperatorId) - 1] = '\0';
 
     /* Populate SelfID from config */
     s.self_id.DescType = cfg->self_id_type;
     strncpy(s.self_id.Desc, cfg->self_id_desc, sizeof(s.self_id.Desc) - 1);
+    s.self_id.Desc[sizeof(s.self_id.Desc) - 1] = '\0';
 
     /* Populate System from config */
     s.system.OperatorLocationType = cfg->op_location_type;

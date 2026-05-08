@@ -20,6 +20,9 @@ void config_set_defaults(odid_config_t *cfg) {
     cfg->ua_class            = 2;
     strncpy(cfg->serial_device, "/dev/ttyACM0", sizeof(cfg->serial_device) - 1);
     cfg->serial_baud         = 921600;
+    cfg->mavlink_use_udp     = false;
+    strncpy(cfg->udp_host, "0.0.0.0", sizeof(cfg->udp_host) - 1);
+    cfg->udp_port            = 14550;
     cfg->bt4_enabled         = true;
     cfg->bt5_enabled         = true;
     cfg->wifi_beacon_enabled = true;
@@ -69,6 +72,9 @@ static int odid_ini_handler(void *user, const char *section,
     else if (MATCH("system", "class"))            { SET_INT(cfg->ua_class); }
     else if (MATCH("serial", "device"))           { SET_STR(cfg->serial_device); }
     else if (MATCH("serial", "baud"))             { SET_INT(cfg->serial_baud); }
+    else if (MATCH("mavlink", "source"))          { cfg->mavlink_use_udp = (strcmp(value, "udp") == 0); }
+    else if (MATCH("mavlink", "host"))            { SET_STR(cfg->udp_host); }
+    else if (MATCH("mavlink", "port"))            { cfg->udp_port = (uint16_t)strtol(value, NULL, 0); }
     else if (MATCH("broadcast", "bt4_enabled"))   { SET_BOOL(cfg->bt4_enabled); }
     else if (MATCH("broadcast", "bt5_enabled"))   { SET_BOOL(cfg->bt5_enabled); }
     else if (MATCH("broadcast", "wifi_beacon_enabled")){ SET_BOOL(cfg->wifi_beacon_enabled); }
@@ -111,8 +117,10 @@ void config_dump(const odid_config_t *cfg) {
              cfg->operator_id, cfg->operator_id_type);
     LOG_INFO("config: self_id='%s' type=%d",
              cfg->self_id_desc, cfg->self_id_type);
-    LOG_INFO("config: serial=%s baud=%d",
-             cfg->serial_device, cfg->serial_baud);
+    if (cfg->mavlink_use_udp)
+        LOG_INFO("config: mavlink=udp host=%s port=%u", cfg->udp_host, cfg->udp_port);
+    else
+        LOG_INFO("config: serial=%s baud=%d", cfg->serial_device, cfg->serial_baud);
     LOG_INFO("config: bt4=%d bt5=%d wifi=%d iface=%s adapter=%s",
              cfg->bt4_enabled, cfg->bt5_enabled,
              cfg->wifi_beacon_enabled, cfg->wifi_iface, cfg->bt_adapter);

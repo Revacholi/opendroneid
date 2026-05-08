@@ -27,6 +27,11 @@ typedef struct {
     char    serial_device[64];   /* e.g. /dev/ttyACM0 */
     int     serial_baud;         /* e.g. 921600 */
 
+    /* [mavlink] — source selection */
+    bool     mavlink_use_udp;    /* false = serial (default), true = UDP */
+    char     udp_host[64];       /* bind address, e.g. "0.0.0.0" */
+    uint16_t udp_port;           /* UDP port, e.g. 14550 */
+
     /* [broadcast] */
     bool    bt4_enabled;
     bool    bt5_enabled;

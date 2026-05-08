@@ -21,6 +21,9 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <poll.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 /* MAVLink C library — ardupilotmega dialect includes all ODID messages */
 #include <ardupilotmega/mavlink.h>
@@ -131,6 +134,31 @@ static int serial_open(const char *dev, int baud) {
 }
 
 
+static int udp_open(const char *host, uint16_t port) {
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        LOG_ERROR("mavlink: UDP socket: %s", strerror(errno));
+        return -1;
+    }
+    int opt = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
+    addr.sin_port   = htons(port);
+    if (inet_pton(AF_INET, host, &addr.sin_addr) != 1) {
+        LOG_ERROR("mavlink: invalid UDP host '%s'", host);
+        close(fd);
+        return -1;
+    }
+    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        LOG_ERROR("mavlink: UDP bind %s:%u: %s", host, port, strerror(errno));
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+
 static void dispatch_mavlink(const mavlink_message_t *msg) {
     odid_queue_msg_t qmsg;
     memset(&qmsg, 0, sizeof(qmsg));
@@ -233,19 +261,56 @@ static void dispatch_mavlink(const mavlink_message_t *msg) {
 
 
 static struct {
-    char   device[64];
-    int    baud;
-    int    fd;
-    bool   running;
+    char     device[64];
+    int      baud;
+    bool     is_udp;
+    char     udp_host[64];
+    uint16_t udp_port;
+    int      fd;
+    bool     running;
     pthread_t tid;
 } s_reader;
 
 static void *reader_thread(void *arg) {
     (void)arg;
-    uint8_t byte;
     mavlink_message_t msg;
     mavlink_status_t  status;
 
+    if (s_reader.is_udp) {
+        s_reader.fd = udp_open(s_reader.udp_host, s_reader.udp_port);
+        if (s_reader.fd < 0) {
+            LOG_ERROR("mavlink: UDP init failed — reader thread exiting");
+            return NULL;
+        }
+        LOG_INFO("mavlink: listening on UDP %s:%u", s_reader.udp_host, s_reader.udp_port);
+
+        uint8_t buf[512];
+        while (s_reader.running) {
+            struct pollfd pfd = { .fd = s_reader.fd, .events = POLLIN };
+            int ret = poll(&pfd, 1, 1000);
+            if (ret < 0) {
+                if (errno == EINTR) continue;
+                LOG_ERROR("mavlink: UDP poll error: %s", strerror(errno));
+                break;
+            }
+            if (ret == 0) continue;
+
+            ssize_t n = recvfrom(s_reader.fd, buf, sizeof(buf), 0, NULL, NULL);
+            if (n < 0) {
+                if (errno == EINTR) continue;
+                LOG_ERROR("mavlink: UDP recvfrom error: %s", strerror(errno));
+                break;
+            }
+            for (ssize_t i = 0; i < n; i++) {
+                if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &msg, &status))
+                    dispatch_mavlink(&msg);
+            }
+        }
+        LOG_INFO("mavlink: reader thread stopped");
+        return NULL;
+    }
+
+    uint8_t byte;
     LOG_INFO("mavlink: reader thread started, waiting for %s", s_reader.device);
 
     /* Open the port — retry until it appears (handles boot-time race and
@@ -312,10 +377,21 @@ static void *reader_thread(void *arg) {
 
 
 int mavlink_reader_init(const char *device, int baud) {
+    memset(&s_reader, 0, sizeof(s_reader));
     strncpy(s_reader.device, device, sizeof(s_reader.device) - 1);
     s_reader.baud    = baud;
-    s_reader.running = false;
+    s_reader.is_udp  = false;
     s_reader.fd      = -1;
+    queue_init(&s_queue);
+    return 0;
+}
+
+int mavlink_reader_init_udp(const char *host, uint16_t port) {
+    memset(&s_reader, 0, sizeof(s_reader));
+    strncpy(s_reader.udp_host, host, sizeof(s_reader.udp_host) - 1);
+    s_reader.udp_port = port;
+    s_reader.is_udp   = true;
+    s_reader.fd       = -1;
     queue_init(&s_queue);
     return 0;
 }

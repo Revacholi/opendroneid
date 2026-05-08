@@ -164,7 +164,7 @@ static int hostapd_set_vendor_ie(const uint8_t *ie, int ie_len) {
         return -1;
     }
     /* hostapd 2.10+: apply vendor_elements to live beacon frames */
-    char update_cmd[48];
+    char update_cmd[80];
     snprintf(update_cmd, sizeof(update_cmd),
              "hostapd_cli -i %s update_beacon > /dev/null 2>&1", s.iface);
     system(update_cmd);

@@ -109,7 +109,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    mavlink_reader_init(cfg.serial_device, cfg.serial_baud);
+    if (cfg.mavlink_use_udp)
+        mavlink_reader_init_udp(cfg.udp_host, cfg.udp_port);
+    else
+        mavlink_reader_init(cfg.serial_device, cfg.serial_baud);
     if (mavlink_reader_start() < 0) {
         LOG_ERROR("MAVLink reader thread failed to start — aborting");
         return 1;

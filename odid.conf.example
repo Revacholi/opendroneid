@@ -45,6 +45,14 @@ device = "/dev/ttyACM0"
 ; Baud rate (must match SERIAL2_BAUD parameter in Ardupilot, typically 921600)
 baud   = 921600
 
+; MAVLink source — omit this section to use serial (default).
+; Set source=udp when mavlink-router is running on the same machine and
+; distributes MAVLink over UDP (e.g. port 14550).
+;[mavlink]
+;source = udp
+;host   = 0.0.0.0   ; bind on all interfaces
+;port   = 14550
+
 [broadcast]
 ; Enable BT4 Legacy Advertising (single ODID message, 31-byte payload)
 bt4_enabled          = true

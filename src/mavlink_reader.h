@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <netinet/in.h>
 
 /* Unified message type from the MAVLink reader */
 typedef enum {
@@ -46,11 +47,19 @@ typedef struct {
 } odid_queue_msg_t;
 
 /**
- * Initialise the MAVLink reader with the given serial device and baud rate.
+ * Initialise the MAVLink reader for a serial device.
  * Must be called before mavlink_reader_start().
  * Returns 0 on success, -1 on error.
  */
 int mavlink_reader_init(const char *device, int baud);
+
+/**
+ * Initialise the MAVLink reader to listen on a UDP socket.
+ * host is the bind address (e.g. "0.0.0.0"), port is the UDP port.
+ * Must be called before mavlink_reader_start().
+ * Returns 0 on success, -1 on error.
+ */
+int mavlink_reader_init_udp(const char *host, uint16_t port);
 
 /**
  * Start the reader thread.  Calls mavlink_reader_init() implicitly if not done.
