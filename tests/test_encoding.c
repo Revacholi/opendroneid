@@ -23,6 +23,7 @@ static int test_basic_id(void) {
     in.IDType = ODID_IDTYPE_SERIAL_NUMBER;
     in.UAType = ODID_UATYPE_AEROPLANE;  /* Fixed wing = AEROPLANE in this library */
     strncpy(in.UASID, "SWE-SSRS-00000000001", sizeof(in.UASID) - 1);
+    in.UASID[sizeof(in.UASID) - 1] = '\0';
 
     ODID_BasicID_encoded enc;
     CHECK(encodeBasicIDMessage(&enc, &in) == ODID_SUCCESS, "encodeBasicIDMessage");
@@ -112,6 +113,7 @@ static int test_self_id(void) {
     ODID_SelfID_data in = {0};
     in.DescType = ODID_DESC_TYPE_TEXT;
     strncpy(in.Desc, "Sea rescue surveillance", sizeof(in.Desc) - 1);
+    in.Desc[sizeof(in.Desc) - 1] = '\0';
 
     ODID_SelfID_encoded enc;
     CHECK(encodeSelfIDMessage(&enc, &in) == ODID_SUCCESS, "encodeSelfIDMessage");
