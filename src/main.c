@@ -6,6 +6,7 @@
  *                         → Bluetooth (BT4 + BT5 LR) + WiFi beacon
  *
  * Usage: odid-daemon [--config <path>] [--debug] [--no-arm-check]
+ *                    [--no-wifi] [--no-bt]
  */
 
 #include "config.h"
@@ -25,6 +26,8 @@
 
 static volatile sig_atomic_t g_stop = 0;
 static bool g_no_arm_check = false;
+static bool g_no_wifi = false;
+static bool g_no_bt   = false;
 
 
 static void sig_handler(int sig) {
@@ -57,8 +60,12 @@ int main(int argc, char *argv[]) {
             g_log_level = LOG_DEBUG;
         } else if (strcmp(argv[i], "--no-arm-check") == 0) {
             g_no_arm_check = true;
+        } else if (strcmp(argv[i], "--no-wifi") == 0) {
+            g_no_wifi = true;
+        } else if (strcmp(argv[i], "--no-bt") == 0) {
+            g_no_bt = true;
         } else {
-            fprintf(stderr, "Usage: %s [--config PATH] [--debug] [--no-arm-check]\n",
+            fprintf(stderr, "Usage: %s [--config PATH] [--debug] [--no-arm-check] [--no-wifi] [--no-bt]\n",
                     argv[0]);
             return 1;
         }
@@ -76,6 +83,9 @@ int main(int argc, char *argv[]) {
     } else {
         LOG_WARN("Config file '%s' not found, using defaults", config_path);
     }
+    config_apply_env(&cfg);
+    if (g_no_wifi) cfg.wifi_beacon_enabled = false;
+    if (g_no_bt)   { cfg.bt4_enabled = false; cfg.bt5_enabled = false; }
     config_dump(&cfg);
 
     signal(SIGINT,  sig_handler);

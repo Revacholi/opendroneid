@@ -58,6 +58,12 @@ int config_load(const char *path, odid_config_t *cfg);
 void config_set_defaults(odid_config_t *cfg);
 
 /**
+ * Override config fields from environment variables (ODID_* prefix).
+ * Call after config_load so env vars take precedence over the file.
+ */
+void config_apply_env(odid_config_t *cfg);
+
+/**
  * Print current configuration to stderr for debugging.
  */
 void config_dump(const odid_config_t *cfg);

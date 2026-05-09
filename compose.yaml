@@ -1,0 +1,13 @@
+services:
+  odid:
+    build: .
+    restart: unless-stopped
+    network_mode: host
+    devices:
+      - /dev/ttyACM0:/dev/ttyACM0
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    environment:
+      - ODID_UAS_ID=SSRS5GBG01
+      - ODID_OPERATOR_ID=SWE3jxza7qbzvu5d

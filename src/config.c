@@ -110,6 +110,42 @@ int config_load(const char *path, odid_config_t *cfg) {
     return 0;
 }
 
+void config_apply_env(odid_config_t *cfg) {
+    const char *e;
+#define ENV_STR(var, field) \
+    if ((e = getenv(var))) { strncpy(field, e, sizeof(field) - 1); field[sizeof(field)-1] = '\0'; }
+#define ENV_INT(var, field) \
+    if ((e = getenv(var))) { (field) = (int)strtol(e, NULL, 0); }
+#define ENV_BOOL(var, field) \
+    if ((e = getenv(var))) { (field) = (strcmp(e, "true") == 0 || strcmp(e, "1") == 0); }
+
+    ENV_STR ("ODID_UAS_ID",            cfg->uas_id)
+    ENV_INT ("ODID_ID_TYPE",           cfg->id_type)
+    ENV_INT ("ODID_UA_TYPE",           cfg->ua_type)
+    ENV_STR ("ODID_OPERATOR_ID",       cfg->operator_id)
+    ENV_INT ("ODID_OPERATOR_ID_TYPE",  cfg->operator_id_type)
+    ENV_STR ("ODID_SELF_ID",           cfg->self_id_desc)
+    ENV_INT ("ODID_SELF_ID_TYPE",      cfg->self_id_type)
+    ENV_STR ("ODID_SERIAL_DEVICE",     cfg->serial_device)
+    ENV_INT ("ODID_SERIAL_BAUD",       cfg->serial_baud)
+    if ((e = getenv("ODID_MAVLINK_SOURCE")))
+        cfg->mavlink_use_udp = (strcmp(e, "udp") == 0);
+    ENV_STR ("ODID_UDP_HOST",          cfg->udp_host)
+    if ((e = getenv("ODID_UDP_PORT"))) cfg->udp_port = (uint16_t)strtol(e, NULL, 0);
+    ENV_BOOL("ODID_BT4_ENABLED",       cfg->bt4_enabled)
+    ENV_BOOL("ODID_BT5_ENABLED",       cfg->bt5_enabled)
+    ENV_BOOL("ODID_WIFI_BEACON_ENABLED", cfg->wifi_beacon_enabled)
+    ENV_STR ("ODID_WIFI_IFACE",        cfg->wifi_iface)
+    ENV_STR ("ODID_BT_ADAPTER",        cfg->bt_adapter)
+    if ((e = getenv("ODID_DEFAULT_LAT"))) cfg->default_lat = strtod(e, NULL);
+    if ((e = getenv("ODID_DEFAULT_LON"))) cfg->default_lon = strtod(e, NULL);
+    if ((e = getenv("ODID_DEFAULT_ALT"))) cfg->default_alt = (float)strtod(e, NULL);
+
+#undef ENV_STR
+#undef ENV_INT
+#undef ENV_BOOL
+}
+
 void config_dump(const odid_config_t *cfg) {
     LOG_INFO("config: uas_id='%s' id_type=%d ua_type=%d",
              cfg->uas_id, cfg->id_type, cfg->ua_type);
