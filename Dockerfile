@@ -11,6 +11,7 @@ WORKDIR /src
 COPY CMakeLists.txt .
 COPY src/ src/
 COPY lib/ lib/
+COPY tests/ tests/
 
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release && \
     cmake --build build -j$(nproc)
