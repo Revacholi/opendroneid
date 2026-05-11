@@ -316,7 +316,7 @@ void odid_state_run(void) {
     long long last_slow     = 0;
 
     const long long LOCATION_INTERVAL_MS = 1000;
-    const long long SLOW_INTERVAL_MS     = 3000;
+    const long long SLOW_INTERVAL_MS     = 5000;
 
     LOG_INFO("odid_state: scheduler running");
 

@@ -269,7 +269,29 @@ static struct {
     int      fd;
     bool     running;
     pthread_t tid;
+    /* UDP: destination address learned from first received packet */
+    struct sockaddr_in remote_addr;
+    socklen_t          remote_addr_len;
+    bool               remote_known;
 } s_reader;
+
+
+static void send_heartbeat(void) {
+    mavlink_message_t msg;
+    uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+    mavlink_msg_heartbeat_pack(1, MAV_COMP_ID_ODID_TXRX_1, &msg,
+                               MAV_TYPE_ODID, MAV_AUTOPILOT_INVALID,
+                               0, 0, MAV_STATE_ACTIVE);
+    int len = mavlink_msg_to_send_buffer(buf, &msg);
+    if (s_reader.is_udp) {
+        if (s_reader.remote_known)
+            sendto(s_reader.fd, buf, len, 0,
+                   (struct sockaddr *)&s_reader.remote_addr,
+                   s_reader.remote_addr_len);
+    } else if (s_reader.fd >= 0) {
+        (void)write(s_reader.fd, buf, len);
+    }
+}
 
 static void *reader_thread(void *arg) {
     (void)arg;
@@ -285,25 +307,41 @@ static void *reader_thread(void *arg) {
         LOG_INFO("mavlink: listening on UDP %s:%u", s_reader.udp_host, s_reader.udp_port);
 
         uint8_t buf[512];
+        long long last_hb = 0;
         while (s_reader.running) {
             struct pollfd pfd = { .fd = s_reader.fd, .events = POLLIN };
-            int ret = poll(&pfd, 1, 1000);
+            int ret = poll(&pfd, 1, 200);
             if (ret < 0) {
                 if (errno == EINTR) continue;
                 LOG_ERROR("mavlink: UDP poll error: %s", strerror(errno));
                 break;
             }
-            if (ret == 0) continue;
 
-            ssize_t n = recvfrom(s_reader.fd, buf, sizeof(buf), 0, NULL, NULL);
-            if (n < 0) {
-                if (errno == EINTR) continue;
-                LOG_ERROR("mavlink: UDP recvfrom error: %s", strerror(errno));
-                break;
+            if (ret > 0) {
+                struct sockaddr_in from;
+                socklen_t from_len = sizeof(from);
+                ssize_t n = recvfrom(s_reader.fd, buf, sizeof(buf), 0,
+                                     (struct sockaddr *)&from, &from_len);
+                if (n < 0) {
+                    if (errno == EINTR) continue;
+                    LOG_ERROR("mavlink: UDP recvfrom error: %s", strerror(errno));
+                    break;
+                }
+                if (!s_reader.remote_known) {
+                    s_reader.remote_addr     = from;
+                    s_reader.remote_addr_len = from_len;
+                    s_reader.remote_known    = true;
+                }
+                for (ssize_t i = 0; i < n; i++) {
+                    if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &msg, &status))
+                        dispatch_mavlink(&msg);
+                }
             }
-            for (ssize_t i = 0; i < n; i++) {
-                if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &msg, &status))
-                    dispatch_mavlink(&msg);
+
+            long long now = time_ms();
+            if (now - last_hb >= 1000) {
+                send_heartbeat();
+                last_hb = now;
             }
         }
         LOG_INFO("mavlink: reader thread stopped");
@@ -311,6 +349,7 @@ static void *reader_thread(void *arg) {
     }
 
     uint8_t byte;
+    long long last_hb = 0;
     LOG_INFO("mavlink: reader thread started, waiting for %s", s_reader.device);
 
     /* Open the port — retry until it appears (handles boot-time race and
@@ -336,7 +375,14 @@ static void *reader_thread(void *arg) {
             LOG_ERROR("mavlink: poll error: %s — reconnecting", strerror(errno));
             goto reconnect;
         }
-        if (ret == 0) continue;  /* timeout — loop back to check s_reader.running */
+        if (ret == 0) {
+            long long now = time_ms();
+            if (now - last_hb >= 1000) {
+                send_heartbeat();
+                last_hb = now;
+            }
+            continue;
+        }
 
         if (pfd.revents & (POLLHUP | POLLERR)) {
             LOG_ERROR("mavlink: device disconnected — reconnecting");
@@ -351,8 +397,13 @@ static void *reader_thread(void *arg) {
         }
         if (n == 0) continue;
 
-        if (mavlink_parse_char(MAVLINK_COMM_0, byte, &msg, &status)) {
+        if (mavlink_parse_char(MAVLINK_COMM_0, byte, &msg, &status))
             dispatch_mavlink(&msg);
+
+        long long now = time_ms();
+        if (now - last_hb >= 1000) {
+            send_heartbeat();
+            last_hb = now;
         }
         continue;
 

@@ -7,17 +7,15 @@
 
 void config_set_defaults(odid_config_t *cfg) {
     memset(cfg, 0, sizeof(*cfg));
-    strncpy(cfg->uas_id, "UNSET00000000000000", sizeof(cfg->uas_id) - 1);
+    /* uas_id and operator_id must be set by the operator */
     cfg->id_type             = 1;  /* ODID_IDTYPE_SERIAL_NUMBER */
-    cfg->ua_type             = 1;  /* ODID_UATYPE_AEROPLANE (fixed wing) */
-    strncpy(cfg->operator_id, "UNSET", sizeof(cfg->operator_id) - 1);
+    cfg->ua_type             = 0;  /* ODID_UATYPE_NONE */
     cfg->operator_id_type    = 1;  /* ODID_OPERATORIDTYPE_CAA_REGISTRATION */
-    strncpy(cfg->self_id_desc, "Rescue drone", sizeof(cfg->self_id_desc) - 1);
-    cfg->self_id_type        = 1;  /* ODID_DESC_TYPE_PURPOSE */
+    cfg->self_id_type        = 0;  /* ODID_DESC_TYPE_TEXT */
     cfg->op_location_type    = 0;  /* ODID_OPERATOR_LOCATION_TYPE_TAKEOFF */
-    cfg->classification_type = 1;  /* ODID_CLASSIFICATION_TYPE_EU */
-    cfg->category            = 3;
-    cfg->ua_class            = 2;
+    cfg->classification_type = 0;  /* ODID_CLASSIFICATION_TYPE_UNDECLARED */
+    cfg->category            = 0;  /* ODID_CATEGORY_EU_UNDECLARED */
+    cfg->ua_class            = 0;  /* ODID_CLASS_EU_UNDECLARED */
     strncpy(cfg->serial_device, "/dev/ttyACM0", sizeof(cfg->serial_device) - 1);
     cfg->serial_baud         = 921600;
     cfg->mavlink_use_udp     = false;
@@ -28,10 +26,7 @@ void config_set_defaults(odid_config_t *cfg) {
     cfg->wifi_beacon_enabled = true;
     strncpy(cfg->wifi_iface, "wlan0", sizeof(cfg->wifi_iface) - 1);
     strncpy(cfg->bt_adapter, "hci0", sizeof(cfg->bt_adapter) - 1);
-    /* Default position: Gothenburg harbour area (SSRS base) */
-    cfg->default_lat    = 57.7089;
-    cfg->default_lon    = 11.9746;
-    cfg->default_alt    = 10.0f;
+    /* lat/lon/alt default to 0 (unknown) until live GPS overrides */
     cfg->default_status = 1;  /* ODID_STATUS_GROUND */
 }
 
