@@ -46,6 +46,8 @@ static struct {
     bool has_self_id;
 
     bool armed;
+    bool has_heartbeat;  /* false until first HEARTBEAT received */
+    bool no_arm_check;
     bool running;
 
     /* Broadcast callbacks */
@@ -126,9 +128,10 @@ static void dispatch_all(bool location_only) {
 }
 
 
-void odid_state_init(const odid_config_t *cfg) {
+void odid_state_init(const odid_config_t *cfg, bool no_arm_check) {
     memset(&s, 0, sizeof(s));
     pthread_mutex_init(&s.mu, NULL);
+    s.no_arm_check = no_arm_check;
     s.running = true;
 
     /* Populate BasicID from config */
@@ -292,6 +295,7 @@ void odid_state_update(const odid_queue_msg_t *msg) {
     case ODID_MSG_HEARTBEAT: {
         bool was_armed = s.armed;
         s.armed = (msg->hb.base_mode & MAV_MODE_FLAG_SAFETY_ARMED) != 0;
+        s.has_heartbeat = true;
         if (s.armed != was_armed) {
             LOG_INFO("odid_state: drone %s", s.armed ? "ARMED" : "DISARMED");
             /* Only derive Status from arm state when FC isn't sending
@@ -324,19 +328,24 @@ void odid_state_run(void) {
 
         if (do_location) {
             pthread_mutex_lock(&s.mu);
-            struct timespec ts;
-            clock_gettime(CLOCK_REALTIME, &ts);
-            s.system.Timestamp = (float)(ts.tv_sec - 1546300800);
-            s.location.TimeStamp = fmodf((float)(ts.tv_sec % 3600)
-                                         + ts.tv_nsec / 1e9f, 3600.0f);
-            dispatch_all(true);  /* BT4 → Location only; WiFi → full pack */
+            bool active = s.no_arm_check || !s.has_heartbeat || s.armed;
+            if (active) {
+                struct timespec ts;
+                clock_gettime(CLOCK_REALTIME, &ts);
+                s.system.Timestamp = (float)(ts.tv_sec - 1546300800);
+                s.location.TimeStamp = fmodf((float)(ts.tv_sec % 3600)
+                                             + ts.tv_nsec / 1e9f, 3600.0f);
+                dispatch_all(true);
+            }
             pthread_mutex_unlock(&s.mu);
             last_location = now;
         }
 
         if (do_slow) {
             pthread_mutex_lock(&s.mu);
-            dispatch_all(false); /* BT4 → cycle one non-Location msg */
+            bool active = s.no_arm_check || !s.has_heartbeat || s.armed;
+            if (active)
+                dispatch_all(false);
             pthread_mutex_unlock(&s.mu);
             last_slow = now;
         }

@@ -225,6 +225,31 @@ The `odid-daemon` will automatically detect the fallback path and update the
 
 ---
 
+## Bluetooth rfkill (CM4 and some RPi variants)
+
+On Compute Module 4 and certain RPi configurations, Bluetooth is soft-blocked by rfkill
+at first boot.
+
+**Docker deployment:** The container's entrypoint script runs `rfkill unblock bluetooth`
+automatically on startup (requires the `NET_ADMIN` capability already present in
+`compose.yaml`). No manual step needed.
+
+**Native / systemd deployment:** Unblock it once — the setting persists across reboots:
+
+```bash
+sudo rfkill unblock bluetooth
+```
+
+Verify:
+```bash
+sudo rfkill list
+# hci0: Bluetooth
+#   Soft blocked: no
+#   Hard blocked: no
+```
+
+---
+
 ## Verifying BT4 Broadcast
 
 **Using nRF Connect (iOS or Android):**
@@ -248,6 +273,7 @@ sudo btmon 2>&1 | grep -A5 "ASTM Remote ID"
 | `wifi: nl80211 inject failed, switching to hostapd fallback` | BCM43455 driver limitation (expected) | Normal — hostapd fallback used |
 | Service not starting | Config file missing | Check `/etc/odid/odid.conf` exists |
 | No BT4 advertisement visible | `hci0` adapter down | `sudo hciconfig hci0 up` |
+| `bt: could not bring hci0 up: Operation not possible due to RF-kill` | Bluetooth soft-blocked by rfkill (common on CM4) | `sudo rfkill unblock bluetooth` — persists across reboots |
 | `cp: cannot create regular file: Text file busy` when updating binary | Service still running | `sudo systemctl stop odid.service` first |
 
 ---

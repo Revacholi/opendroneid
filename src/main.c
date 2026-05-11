@@ -53,6 +53,19 @@ static void *mavlink_thread(void *arg) {
 int main(int argc, char *argv[]) {
     const char *config_path = "/etc/odid/odid.conf";
 
+    /* env vars set defaults; CLI args override */
+    {
+        const char *e;
+#define ENV_FLAG(var, field) \
+        if ((e = getenv(var)) && (strcmp(e,"1")==0 || strcmp(e,"true")==0)) (field) = true
+        if ((e = getenv("ODID_DEBUG")) && (strcmp(e,"1")==0 || strcmp(e,"true")==0))
+            g_log_level = LOG_DEBUG;
+        ENV_FLAG("ODID_NO_ARM_CHECK", g_no_arm_check);
+        ENV_FLAG("ODID_NO_WIFI",      g_no_wifi);
+        ENV_FLAG("ODID_NO_BT",        g_no_bt);
+#undef ENV_FLAG
+    }
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
             config_path = argv[++i];
@@ -92,7 +105,7 @@ int main(int argc, char *argv[]) {
     signal(SIGTERM, sig_handler);
     signal(SIGPIPE, SIG_IGN);
 
-    odid_state_init(&cfg);
+    odid_state_init(&cfg, g_no_arm_check);
 
     bool bt_ok = false;
     if (cfg.bt4_enabled || cfg.bt5_enabled) {

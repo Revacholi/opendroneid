@@ -31,9 +31,10 @@ typedef void (*odid_broadcast_fn)(const odid_encoded_t *single,
 
 /**
  * Initialise the state machine with config values as defaults.
+ * no_arm_check: if true, broadcast regardless of arm state.
  * Registers up to 3 broadcast callbacks.
  */
-void odid_state_init(const odid_config_t *cfg);
+void odid_state_init(const odid_config_t *cfg, bool no_arm_check);
 void odid_state_add_broadcast(odid_broadcast_fn fn, void *user);
 
 /**
