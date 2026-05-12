@@ -1,0 +1,48 @@
+# Hermetic build from git — for use in drone/CI builds where the source
+# is fetched directly from the repository rather than copied from the workspace.
+#
+# Usage:
+#   docker build -f Dockerfile.build \
+#     --build-arg ODID_VERSION=<commit-or-tag> \
+#     -t odid-daemon .
+
+# Stage 1: build
+FROM debian:trixie AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    cmake make gcc \
+    libbluetooth-dev \
+    libnl-3-dev libnl-genl-3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+ARG ODID_VERSION=main
+RUN git clone https://github.com/Revacholi/opendroneid.git && \
+    cd opendroneid && \
+    git checkout ${ODID_VERSION} && \
+    git submodule update --init --recursive
+
+WORKDIR /src/opendroneid
+
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build -j$(nproc)
+
+# Stage 2: runtime
+FROM debian:trixie
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libbluetooth3 \
+    libnl-3-200 libnl-genl-3-200 \
+    rfkill \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /src/opendroneid/build/odid-daemon /usr/local/bin/odid-daemon
+COPY --from=builder /src/opendroneid/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
