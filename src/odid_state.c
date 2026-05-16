@@ -156,6 +156,12 @@ void odid_state_init(const odid_config_t *cfg, bool no_arm_check) {
     s.system.ClassificationType   = cfg->classification_type;
     s.system.CategoryEU           = cfg->category;
     s.system.ClassEU              = cfg->ua_class;
+    /* Seed operator location from config defaults so we never broadcast 0,0.
+     * For TAKEOFF type this is updated from GPS_INT until the drone arms. */
+    s.system.OperatorLatitude     = cfg->default_lat;
+    s.system.OperatorLongitude    = cfg->default_lon;
+    s.system.OperatorAltitudeGeo  = cfg->default_alt;
+    s.system.AreaCount            = 1;  /* spec minimum: 1 = no sub-areas */
     /* Timestamp: seconds since 1 Jan 2019 00:00:00 UTC (EN 4709-002 epoch) */
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
@@ -251,22 +257,42 @@ void odid_state_update(const odid_queue_msg_t *msg) {
             s.location.TimeStamp = fmodf((float)(now.tv_sec % 3600)
                                          + now.tv_nsec / 1e9f, 3600.0f);
         }
+        /* Track operator (takeoff) location from GPS while on the ground.
+         * Frozen once armed so TAKEOFF semantics are preserved.
+         * Ignore lat=0,lon=0 — that is a no-fix sentinel, not a real location. */
+        if (!s.armed && !s.has_system &&
+            (msg->gps.lat != 0 || msg->gps.lon != 0)) {
+            s.system.OperatorLatitude    = msg->gps.lat / 1e7;
+            s.system.OperatorLongitude   = msg->gps.lon / 1e7;
+            s.system.OperatorAltitudeGeo = msg->gps.alt / 1000.0f;
+            LOG_DEBUG("odid_state: op_loc from GPS_INT lat=%.6f lon=%.6f",
+                      s.system.OperatorLatitude, s.system.OperatorLongitude);
+        }
         break;
     }
 
     case ODID_MSG_SYSTEM: {
         mavlink_open_drone_id_system_t m;
         memcpy(&m, msg->raw, sizeof(m));
-        s.system.OperatorLatitude     = m.operator_latitude  / 1e7;
-        s.system.OperatorLongitude    = m.operator_longitude / 1e7;
-        s.system.OperatorAltitudeGeo  = m.operator_altitude_geo;
-        s.system.OperatorLocationType = m.operator_location_type;
+        /* ArduPilot sends SYSTEM with operator_lat/lon = 0 when no GCS is
+         * connected. Only trust non-zero coordinates — otherwise the GPS_INT
+         * takeoff-tracking path would be permanently blocked by a bogus 0,0. */
+        if (m.operator_latitude != 0 || m.operator_longitude != 0) {
+            s.system.OperatorLatitude     = m.operator_latitude  / 1e7;
+            s.system.OperatorLongitude    = m.operator_longitude / 1e7;
+            s.system.OperatorAltitudeGeo  = m.operator_altitude_geo;
+            s.system.OperatorLocationType = m.operator_location_type;
+            s.has_system = true;
+            LOG_DEBUG("odid_state: SYSTEM op_lat=%.6f op_lon=%.6f",
+                      s.system.OperatorLatitude, s.system.OperatorLongitude);
+        } else {
+            LOG_DEBUG("odid_state: SYSTEM op_lat=0 — ignoring zero operator location");
+        }
         s.system.ClassificationType   = m.classification_type;
         s.system.CategoryEU           = m.category_eu;
         s.system.ClassEU              = m.class_eu;
         s.system.AreaCount            = m.area_count;
         s.system.Timestamp            = m.timestamp;
-        s.has_system = true;
         break;
     }
 
