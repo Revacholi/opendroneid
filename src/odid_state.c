@@ -47,7 +47,6 @@ static struct {
 
     bool armed;
     bool has_heartbeat;  /* false until first HEARTBEAT received */
-    bool no_arm_check;
     bool running;
 
     /* Broadcast callbacks */
@@ -128,10 +127,9 @@ static void dispatch_all(bool location_only) {
 }
 
 
-void odid_state_init(const odid_config_t *cfg, bool no_arm_check) {
+void odid_state_init(const odid_config_t *cfg) {
     memset(&s, 0, sizeof(s));
     pthread_mutex_init(&s.mu, NULL);
-    s.no_arm_check = no_arm_check;
     s.running = true;
 
     /* Populate BasicID from config */
@@ -342,7 +340,7 @@ void odid_state_run(void) {
     long long last_slow     = 0;
 
     const long long LOCATION_INTERVAL_MS = 1000;
-    const long long SLOW_INTERVAL_MS     = 5000;
+    const long long SLOW_INTERVAL_MS     = 700;   /* 4-msg rotation × 700ms = 2.8s/type → ≥ 0.33 Hz (50ms tick jitter margin) */
 
     LOG_INFO("odid_state: scheduler running");
 
@@ -354,24 +352,19 @@ void odid_state_run(void) {
 
         if (do_location) {
             pthread_mutex_lock(&s.mu);
-            bool active = s.no_arm_check || !s.has_heartbeat || s.armed;
-            if (active) {
-                struct timespec ts;
-                clock_gettime(CLOCK_REALTIME, &ts);
-                s.system.Timestamp = (float)(ts.tv_sec - 1546300800);
-                s.location.TimeStamp = fmodf((float)(ts.tv_sec % 3600)
-                                             + ts.tv_nsec / 1e9f, 3600.0f);
-                dispatch_all(true);
-            }
+            struct timespec ts;
+            clock_gettime(CLOCK_REALTIME, &ts);
+            s.system.Timestamp = (float)(ts.tv_sec - 1546300800);
+            s.location.TimeStamp = fmodf((float)(ts.tv_sec % 3600)
+                                         + ts.tv_nsec / 1e9f, 3600.0f);
+            dispatch_all(true);
             pthread_mutex_unlock(&s.mu);
             last_location = now;
         }
 
         if (do_slow) {
             pthread_mutex_lock(&s.mu);
-            bool active = s.no_arm_check || !s.has_heartbeat || s.armed;
-            if (active)
-                dispatch_all(false);
+            dispatch_all(false);
             pthread_mutex_unlock(&s.mu);
             last_slow = now;
         }

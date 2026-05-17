@@ -25,7 +25,6 @@
 
 
 static volatile sig_atomic_t g_stop = 0;
-static bool g_no_arm_check = false;
 static bool g_no_wifi = false;
 static bool g_no_bt   = false;
 
@@ -60,7 +59,6 @@ int main(int argc, char *argv[]) {
         if ((e = getenv(var)) && (strcmp(e,"1")==0 || strcmp(e,"true")==0)) (field) = true
         if ((e = getenv("ODID_DEBUG")) && (strcmp(e,"1")==0 || strcmp(e,"true")==0))
             g_log_level = LOG_DEBUG;
-        ENV_FLAG("ODID_NO_ARM_CHECK", g_no_arm_check);
         ENV_FLAG("ODID_NO_WIFI",      g_no_wifi);
         ENV_FLAG("ODID_NO_BT",        g_no_bt);
 #undef ENV_FLAG
@@ -71,14 +69,12 @@ int main(int argc, char *argv[]) {
             config_path = argv[++i];
         } else if (strcmp(argv[i], "--debug") == 0) {
             g_log_level = LOG_DEBUG;
-        } else if (strcmp(argv[i], "--no-arm-check") == 0) {
-            g_no_arm_check = true;
         } else if (strcmp(argv[i], "--no-wifi") == 0) {
             g_no_wifi = true;
         } else if (strcmp(argv[i], "--no-bt") == 0) {
             g_no_bt = true;
         } else {
-            fprintf(stderr, "Usage: %s [--config PATH] [--debug] [--no-arm-check] [--no-wifi] [--no-bt]\n",
+            fprintf(stderr, "Usage: %s [--config PATH] [--debug] [--no-wifi] [--no-bt]\n",
                     argv[0]);
             return 1;
         }
@@ -105,7 +101,7 @@ int main(int argc, char *argv[]) {
     signal(SIGTERM, sig_handler);
     signal(SIGPIPE, SIG_IGN);
 
-    odid_state_init(&cfg, g_no_arm_check);
+    odid_state_init(&cfg);
 
     bool bt_ok = false;
     if (cfg.bt4_enabled || cfg.bt5_enabled) {
